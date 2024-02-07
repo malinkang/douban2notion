@@ -152,7 +152,6 @@ def insert_movie():
 
 
 def insert_book():
-    notion_helper = NotionHelper("https://www.notion.so/malinkang/896c6112906e4ffcaa13dbde9e0c68c0?pvs=4")
     notion_books = notion_helper.query_all(database_id=notion_helper.book_database_id)
     notion_book_dict = {}
     for i in notion_books:
