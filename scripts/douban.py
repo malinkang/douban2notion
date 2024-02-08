@@ -192,7 +192,7 @@ def insert_book():
                 or notion_movive.get("状态") != book.get("状态")
                 or notion_movive.get("评分") != book.get("评分")
             ):
-                properties = utils.get_properties(book, )
+                properties = utils.get_properties(book, book_properties_type_dict)
                 notion_helper.get_date_relation(properties,create_time)
                 notion_helper.update_page(
                     page_id=notion_movive.get("page_id"),
