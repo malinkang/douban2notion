@@ -132,7 +132,7 @@ def insert_movie():
                     for x in subject.get("genres")
                 ]
             if subject.get("actors"):
-                movie["演员"] = [x.get("name") for x in subject.get("actors")[0:100] if x.get("name")]
+                movie["演员"] = [x.get("name").replace(",","") for x in subject.get("actors")[0:100] if x.get("name")]
             if subject.get("directors"):
                 movie["导演"] = [
                     notion_helper.get_relation_id(
@@ -204,7 +204,10 @@ def insert_book():
             cover = subject.get("pic").get("large")
             book["封面"] = cover
             book["简介"] = subject.get("intro")
-            book["出版社"] = subject.get("press")
+            press = []
+            for i in subject.get("press"):
+                press.extend(i.split(","))
+            book["出版社"] = press
             book["类型"] = subject.get("type")
             if result.get("tags"):
                 book["分类"] = [
