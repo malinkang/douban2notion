@@ -46,8 +46,7 @@ def fetch_subjects(user, type_, status):
     url = f"https://{DOUBAN_API_HOST}/api/v2/user/{user}/interests"
     total = 0
     results = []
-    has_next = True
-    while has_next:
+    while True:
         params = {
             "type": type_,
             "count": 50,
@@ -59,14 +58,14 @@ def fetch_subjects(user, type_, status):
         
         if response.ok:
             response = response.json()
-            results.extend(response.get("interests"))
-            total = response.get("total")
+            interests = response.get("interests")
+            if len(interests)==0:
+                break
+            results.extend(interests)
             print(f"total = {total}")
             print(f"size = {len(results)}")
             page += 1
             offset = page * 50
-            has_next = len(results) < total
-            
     return results
 
 
