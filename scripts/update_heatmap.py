@@ -1,32 +1,37 @@
 import argparse
+import glob
 import os
-from utils import upload_image
+import shutil
+import time
 from notion_helper import NotionHelper
-def get_file():
-    # 设置文件夹路径
-    folder_path = './OUT_FOLDER'
 
-    # 检查文件夹是否存在
-    if os.path.exists(folder_path) and os.path.isdir(folder_path):
-        entries = os.listdir(folder_path)
-        
-        file_name = entries[0] if entries else None
-        return file_name
-    else:
-        print("OUT_FOLDER does not exist.")
-        return None
-    
+def move_and_rename_file(type):
+
+    # 确保目标目录存在
+    source_path = os.path.join("./OUT_FOLDER", 'notion.svg')
+    target_dir = os.path.join("./OUT_FOLDER", type)
+    os.makedirs(target_dir, exist_ok=True)
+
+    # 生成时间戳命名的文件名
+    timestamp = int(time.time())
+    new_filename = f"{timestamp}.svg"
+    target_path = os.path.join(target_dir, new_filename)
+
+    # 移动并重命名文件
+    shutil.move(source_path, target_path)
+    # 返回移动后的文件路径
+    return target_path
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("type")
     options = parser.parse_args()
     type = options.type
-    is_movie = True if type=="movie" else False
-    notion_url = os.getenv("NOTION_MOVIE_URL") if is_movie else os.getenv("NOTION_BOOK_URL")
-    notion_helper = NotionHelper(notion_url)
-    image_file = get_file()
+    notion_helper = NotionHelper(type)
+    image_file = move_and_rename_file(type)
     if image_file:
-        image_url = upload_image(f"heatmap/{os.getenv('REPOSITORY').split('/')[0]}",image_file,f"./OUT_FOLDER/{image_file}")
-        block_id = notion_helper.image_dict.get("id")
-        if(image_url and block_id):
-            notion_helper.update_image_block_link(block_id,image_url)
+        image_url = f"https://raw.githubusercontent.com/{os.getenv('REPOSITORY')}/{os.getenv('REF').split('/')[-1]}/{image_file}"
+        heatmap_url = f"https://heatmap.malinkang.com/?image={image_url}"
+        if notion_helper.heatmap_block_id:
+            response = notion_helper.update_heatmap(
+                block_id=notion_helper.heatmap_block_id, url=heatmap_url
+            )

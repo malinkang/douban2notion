@@ -239,8 +239,7 @@ if __name__ == "__main__":
     options = parser.parse_args()
     type = options.type
     is_movie = True if type=="movie" else False
-    notion_url = os.getenv("NOTION_MOVIE_URL") if is_movie else os.getenv("NOTION_BOOK_URL")
-    notion_helper = NotionHelper(notion_url)
+    notion_helper = NotionHelper(type)
     douban_name = os.getenv("DOUBAN_NAME", None)
     if is_movie:
         insert_movie()

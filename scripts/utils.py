@@ -403,3 +403,6 @@ def download_image(url, save_dir="cover"):
 def upload_cover(url):
     cover_file = download_image(url)
     return upload_image("cover",f"{cover_file.split('/')[-1]}",cover_file)
+
+def get_embed(url):
+    return {"type": "embed", "embed": {"url": url}}

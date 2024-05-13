@@ -42,8 +42,16 @@ class NotionHelper:
     }
     database_id_dict = {}
     image_dict = {}
-    def __init__(self,page_url):
-        self.client = Client(auth=os.getenv("NOTION_TOKEN"), log_level=logging.ERROR)
+    def __init__(self,type):
+        is_movie = True if type=="movie" else False
+        page_url = os.getenv("NOTION_MOVIE_URL") if is_movie else os.getenv("NOTION_BOOK_URL")
+        notion_token = os.getenv("NOTION_TOKEN")
+        if not notion_token:
+            if is_movie:
+                notion_token = os.getenv("MOVIE_NOTION_TOKEN")
+            else:
+                notion_token = os.getenv("BOOK_NOTION_TOKEN")
+        self.client = Client(auth=notion_token, log_level=logging.ERROR)
         self.__cache = {}
         self.page_id = self.extract_page_id(page_url)
         self.search_database(self.page_id)
@@ -98,6 +106,7 @@ class NotionHelper:
 
 
     def search_database(self, block_id):
+        print(block_id)
         children = self.client.blocks.children.list(block_id=block_id)["results"]
         # 遍历子块
         for child in children:
@@ -107,18 +116,16 @@ class NotionHelper:
                 self.database_id_dict[
                     child.get("child_database").get("title")
                 ] = child.get("id")
-            elif child["type"] == "image":
-                self.image_dict["url"] = child.get("image").get("external").get("url")
-                self.image_dict["id"] = child.get("id")
+            elif child["type"] == "embed" and child.get("embed").get("url"):
+                if child.get("embed").get("url").startswith("https://heatmap.malinkang.com/"):
+                    self.heatmap_block_id = child.get("id")
             # 如果子块有子块，递归调用函数
             if "has_children" in child and child["has_children"]:
                 self.search_database(child["id"])
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
-    def update_image_block_link(self, block_id, new_image_url):
+    def update_heatmap(self, block_id, url):
         # 更新 image block 的链接
-        self.client.blocks.update(
-            block_id=block_id, image={"external": {"url": new_image_url}}
-        )
+        return self.client.blocks.update(block_id=block_id, embed={"url": url})
 
     def get_week_relation_id(self, date):
         year = date.isocalendar().year

@@ -3,17 +3,21 @@ name: douban movie sync
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 16 * * *"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   sync:
     name: Sync
     runs-on: ubuntu-latest
     env:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        MOVIE_NOTION_TOKEN: ${{ secrets.MOVIE_NOTION_TOKEN }}
         NOTION_MOVIE_URL: ${{ secrets.NOTION_MOVIE_URL }}
-        NOTION_BOOK_URL: ${{ secrets.NOTION_BOOK_URL }}
         DOUBAN_NAME: ${{ secrets.DOUBAN_NAME }}
         YEAR: ${{ vars.YEAR }}
+        REF: ${{ github.ref }}
         REPOSITORY: ${{ github.repository }}
     steps:
       - name: Checkout
@@ -38,11 +42,13 @@ jobs:
       - name: notion heatmap
         run: |
           github_heatmap notion  --notion_token "${{secrets.NOTION_TOKEN}}" --database_id "${{ env.DATABASE_ID }}" --date_prop_name "日期" --value_prop_name "看过" --unit "部" --year $YEAR  --me "${{secrets.MOVIE_NAME}}" --without-type-name --with-animation --background-color=${{ vars.background_color||'#FFFFFF'}} --track-color=${{ vars.track_color||'#ACE7AE'}} --special-color1=${{ vars.special_color||'#69C16E'}} --special-color2=${{ vars.special_color2||'#549F57'}} --dom-color=${{ vars.dom_color||'#EBEDF0'}} --text-color=${{ vars.text_color||'#000000'}}
-      - name: Rename notion.svg to a random name
-        run: |
-            RANDOM_FILENAME=$(uuidgen).svg
-            mv ./OUT_FOLDER/notion.svg ./OUT_FOLDER/$RANDOM_FILENAME
-            echo "Renamed file to $RANDOM_FILENAME"
       - name: udpate heatmap 
         run: |
             python -u scripts/update_heatmap.py "movie"
+      - name: push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m 'add new heatmap' || echo "nothing to commit"
+          git push || echo "nothing to push"
