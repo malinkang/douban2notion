@@ -41,7 +41,7 @@ jobs:
         if: env.YEAR == ''
       - name: notion heatmap
         run: |
-          github_heatmap notion  --notion_token "${{secrets.BOOK_NOTION_TOKEN}}" --database_id "${{ env.DATABASE_ID }}" --date_prop_name "日期" --value_prop_name "读过" --unit "本" --year $YEAR  --me "${{secrets.BOOK_NAME}}" --without-type-name --with-animation --background-color=${{ vars.background_color||'#FFFFFF'}} --track-color=${{ vars.track_color||'#ACE7AE'}} --special-color1=${{ vars.special_color||'#69C16E'}} --special-color2=${{ vars.special_color2||'#549F57'}} --dom-color=${{ vars.dom_color||'#EBEDF0'}} --text-color=${{ vars.text_color||'#000000'}}
+          github_heatmap notion  --notion_token "${{secrets.BOOK_NOTION_TOKEN}}" --database_id "${{ env.DATABASE_ID }}" --date_prop_name "日期" --value_prop_name "读过" --unit "本" --year $YEAR  --me "${{secrets.BOOK_NAME}}" --without-type-name --background-color=${{ vars.background_color||'#FFFFFF'}} --track-color=${{ vars.track_color||'#ACE7AE'}} --special-color1=${{ vars.special_color||'#69C16E'}} --special-color2=${{ vars.special_color2||'#549F57'}} --dom-color=${{ vars.dom_color||'#EBEDF0'}} --text-color=${{ vars.text_color||'#000000'}}
       - name: udpate heatmap 
         run: |
             python -u scripts/update_heatmap.py "book"
