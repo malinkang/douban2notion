@@ -35,7 +35,7 @@ jobs:
         run: |
           python -u scripts/douban.py "book"
       - name: Remove folder
-        run: rm -rf ./OUT_FOLDER
+        run: rm -rf ./OUT_FOLDER/book
       - name: Set default year if not provided
         run: echo "YEAR=$(date +"%Y")" >> $GITHUB_ENV
         if: env.YEAR == ''
