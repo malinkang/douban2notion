@@ -1,18 +1,21 @@
 import argparse
 import json
 import os
+import re
 import pendulum
 from retrying import retry
 import requests
 from notion_helper import NotionHelper
 import utils
+import feedparser
 
 DOUBAN_API_HOST = os.getenv("DOUBAN_API_HOST", "frodo.douban.com")
 DOUBAN_API_KEY = os.getenv("DOUBAN_API_KEY", "0ac44ae016490db2204ce0a042db2916")
 
 from config import movie_properties_type_dict,book_properties_type_dict, TAG_ICON_URL, USER_ICON_URL
 from utils import get_icon
-
+from dotenv import load_dotenv
+load_dotenv()
 rating = {
     1: "⭐️",
     2: "⭐️⭐️",
@@ -91,6 +94,10 @@ def insert_movie():
     for result in results:
         movie = {}
         subject = result.get("subject")
+        if(subject.get("title")=="未知电影" or subject.get("title")=="未知电视剧") and subject.get("url") in unknown_dict:
+            unknown = unknown_dict.get(subject.get("url"))
+            subject["title"] = unknown.get("title")
+            subject["pic"]["large"] = unknown.get("img")
         movie["电影名"] = subject.get("title")
         create_time = result.get("create_time")
         create_time = pendulum.parse(create_time,tz=utils.tz)
@@ -240,7 +247,21 @@ def insert_book():
                 parent=parent, properties=properties, icon=get_icon(cover)
             )
 
-
+def parse_interests():
+    items = feedparser.parse(f'https://www.douban.com/feed/people/{douban_name}/interests')
+    pattern = r'<img [^>]*src="([^"]+)"'
+    for item in items.get("entries"):
+        match = re.search(pattern, item.get("summary"))
+        if match:
+            img_url = match.group(1)
+            unknown_dict[item.get("link").replace("http:","https:")]={
+                "title": item.get("title")[2:],
+                "img": img_url,
+            }
+        else:
+            print("没有找到图片链接")
+      
+unknown_dict = {}
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("type")
@@ -249,6 +270,7 @@ if __name__ == "__main__":
     is_movie = True if type=="movie" else False
     notion_helper = NotionHelper(type)
     douban_name = os.getenv("DOUBAN_NAME", None)
+    parse_interests()
     if is_movie:
         insert_movie()
     else:
