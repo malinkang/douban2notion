@@ -51,4 +51,5 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git commit -m 'add new heatmap' || echo "nothing to commit"
+          git pull --rebase origin main
           git push || echo "nothing to push"
