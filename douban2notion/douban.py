@@ -95,7 +95,6 @@ def insert_movie(douban_name,notion_helper):
             print(result)
             continue
         subject = result.get("subject")
-        print(f"title = {subject.get('title')}")
         movie["电影名"] = subject.get("title")
         create_time = result.get("create_time")
         create_time = pendulum.parse(create_time,tz=utils.tz)
@@ -253,7 +252,6 @@ def main():
     parser.add_argument("type")
     options = parser.parse_args()
     type = options.type
-    print(f"type= {type}")
     notion_helper = NotionHelper(type)
     is_movie = True if type=="movie" else False
     douban_name = os.getenv("DOUBAN_NAME", None)

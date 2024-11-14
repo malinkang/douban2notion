@@ -1,3 +1,0 @@
-[console_scripts]
-douban = douban2notion.douban:main
-heatmap = douban2notion.upadte_heatmap:main
