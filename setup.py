@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    version="0.0.4",
+    version="0.0.7",
     packages=find_packages(),
     install_requires=[
         "requests",
@@ -14,7 +14,7 @@ setup(
     entry_points={
         "console_scripts": [
             "douban = douban2notion.douban:main",
-            "heatmap = douban2notion.upadte_heatmap:main",
+            "heatmap = douban2notion.update_heatmap:main",
         ],
     },
     author="malinkang",
