@@ -33,7 +33,7 @@ jobs:
           pip install -r requirements.txt
       - name: douban book sync
         run: |
-          python -u scripts/douban.py "book"
+          douban "book"
       - name: Remove folder
         run: rm -rf ./OUT_FOLDER/book
       - name: Set default year if not provided
@@ -44,11 +44,12 @@ jobs:
           github_heatmap notion  --notion_token "${{ secrets.BOOK_NOTION_TOKEN || secrets.NOTION_TOKEN }}" --database_id "${{ env.DATABASE_ID }}" --date_prop_name "日期" --value_prop_name "读过" --unit "本" --year $YEAR  --me "${{secrets.BOOK_NAME}}" --without-type-name --background-color=${{ vars.background_color||'#FFFFFF'}} --track-color=${{ vars.track_color||'#ACE7AE'}} --special-color1=${{ vars.special_color||'#69C16E'}} --special-color2=${{ vars.special_color2||'#549F57'}} --dom-color=${{ vars.dom_color||'#EBEDF0'}} --text-color=${{ vars.text_color||'#000000'}}
       - name: udpate heatmap 
         run: |
-            python -u scripts/update_heatmap.py "book"
+            heatmap "book"
       - name: push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add .
           git commit -m 'add new heatmap' || echo "nothing to commit"
+          git pull --rebase origin main
           git push || echo "nothing to push"

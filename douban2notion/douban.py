@@ -1,18 +1,20 @@
 import argparse
+from email import feedparser
 import json
 import os
+import re
 import pendulum
 from retrying import retry
 import requests
-from notion_helper import NotionHelper
-import utils
-
+from douban2notion.notion_helper import NotionHelper
+from douban2notion import utils
 DOUBAN_API_HOST = os.getenv("DOUBAN_API_HOST", "frodo.douban.com")
 DOUBAN_API_KEY = os.getenv("DOUBAN_API_KEY", "0ac44ae016490db2204ce0a042db2916")
 
-from config import movie_properties_type_dict,book_properties_type_dict, TAG_ICON_URL, USER_ICON_URL
-from utils import get_icon
-
+from douban2notion.config import movie_properties_type_dict,book_properties_type_dict, TAG_ICON_URL, USER_ICON_URL
+from douban2notion.utils import get_icon
+from dotenv import load_dotenv
+load_dotenv()
 rating = {
     1: "⭐️",
     2: "⭐️⭐️",
@@ -38,7 +40,6 @@ headers = {
     "user-agent": "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.16(0x18001023) NetType/WIFI Language/zh_CN",
     "referer": "https://servicewechat.com/wx2f9b06c1de1ccfca/84/page-frame.html",
 }
-
 @retry(stop_max_attempt_number=3, wait_fixed=5000)
 def fetch_subjects(user, type_, status):
     offset = 0
@@ -70,7 +71,7 @@ def fetch_subjects(user, type_, status):
 
 
 
-def insert_movie():
+def insert_movie(douban_name,notion_helper):
     notion_movies = notion_helper.query_all(database_id=notion_helper.movie_database_id)
     notion_movie_dict = {}
     for i in notion_movies:
@@ -90,6 +91,9 @@ def insert_movie():
         results.extend(fetch_subjects(douban_name, "movie", i))
     for result in results:
         movie = {}
+        if not result:
+            print(result)
+            continue
         subject = result.get("subject")
         movie["电影名"] = subject.get("title")
         create_time = result.get("create_time")
@@ -120,7 +124,9 @@ def insert_movie():
 
         else:
             print(f"插入{movie.get('电影名')}")
-            cover = subject.get("pic").get("large")
+            cover = subject.get("pic").get("normal")
+            if not cover.endswith('.webp'):
+                cover = cover.rsplit('.', 1)[0] + '.webp'
             movie["封面"] = cover
             movie["类型"] = subject.get("type")
             if subject.get("genres"):
@@ -158,7 +164,7 @@ def insert_movie():
             )
 
 
-def insert_book():
+def insert_book(douban_name,notion_helper):
     notion_books = notion_helper.query_all(database_id=notion_helper.book_database_id)
     notion_book_dict = {}
     for i in notion_books:
@@ -240,16 +246,18 @@ def insert_book():
                 parent=parent, properties=properties, icon=get_icon(cover)
             )
 
-
-if __name__ == "__main__":
+     
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("type")
     options = parser.parse_args()
     type = options.type
-    is_movie = True if type=="movie" else False
     notion_helper = NotionHelper(type)
+    is_movie = True if type=="movie" else False
     douban_name = os.getenv("DOUBAN_NAME", None)
     if is_movie:
-        insert_movie()
+        insert_movie(douban_name,notion_helper)
     else:
-        insert_book()
+        insert_book(douban_name,notion_helper)
+if __name__ == "__main__":
+    main()

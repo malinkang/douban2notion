@@ -1,25 +1,19 @@
 import logging
 import os
 import re
-import time
 
 from notion_client import Client
 from retrying import retry
-from datetime import timedelta
 
-from utils import (
+from douban2notion.utils import (
     format_date,
     get_date,
     get_first_and_last_day_of_month,
     get_first_and_last_day_of_week,
     get_first_and_last_day_of_year,
     get_icon,
-    get_number,
     get_relation,
-    get_rich_text,
     get_title,
-    timestamp_to_date,
-    get_property_value,
 )
 
 TAG_ICON_URL = "https://www.notion.so/icons/tag_gray.svg"
@@ -104,9 +98,8 @@ class NotionHelper:
         else:
             raise Exception(f"获取NotionID失败，请检查输入的Url是否正确")
 
-
+    @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def search_database(self, block_id):
-        print(block_id)
         children = self.client.blocks.children.list(block_id=block_id)["results"]
         # 遍历子块
         for child in children:
@@ -122,6 +115,7 @@ class NotionHelper:
             # 如果子块有子块，递归调用函数
             if "has_children" in child and child["has_children"]:
                 self.search_database(child["id"])
+
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def update_heatmap(self, block_id, url):
         # 更新 image block 的链接
