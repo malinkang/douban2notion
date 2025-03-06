@@ -4,4 +4,4 @@ github-heatmap
 retrying
 pendulum
 python-dotenv
-feedparser
+douban2notion
