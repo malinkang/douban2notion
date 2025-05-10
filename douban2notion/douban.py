@@ -138,7 +138,7 @@ def insert_movie(douban_name,notion_helper):
                 ]
             if subject.get("actors"):
                 l = []
-                actors = subject.get("actors")[0:100]
+                actors = subject.get("actors")[0:10]
                 for actor in actors:
                     if actor.get("name"):
                         if "/" in actor.get("name"):
