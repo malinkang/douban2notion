@@ -138,7 +138,7 @@ def insert_movie(douban_name,notion_helper):
                 ]
             if subject.get("actors"):
                 l = []
-                actors = subject.get("actors")[0:10]
+                actors = subject.get("actors")[0:5]
                 for actor in actors:
                     if actor.get("name"):
                         if "/" in actor.get("name"):
@@ -151,7 +151,7 @@ def insert_movie(douban_name,notion_helper):
                     notion_helper.get_relation_id(
                         x.get("name"), notion_helper.director_database_id, USER_ICON_URL
                     )
-                    for x in subject.get("directors")[0:100]
+                    for x in subject.get("directors")[0:10]
                 ]
             properties = utils.get_properties(movie, movie_properties_type_dict)
             notion_helper.get_date_relation(properties,create_time)
@@ -234,7 +234,7 @@ def insert_book(douban_name,notion_helper):
                     notion_helper.get_relation_id(
                         x, notion_helper.author_database_id, USER_ICON_URL
                     )
-                    for x in subject.get("author")[0:100]
+                    for x in subject.get("author")[0:10]
                 ]
             properties = utils.get_properties(book, book_properties_type_dict)
             notion_helper.get_date_relation(properties,create_time)
