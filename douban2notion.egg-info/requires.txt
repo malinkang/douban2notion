@@ -1,0 +1,8 @@
+requests
+pendulum
+retrying
+notion-client
+github-heatmap
+python-dotenv
+beautifulsoup4
+lxml

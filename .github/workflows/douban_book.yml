@@ -16,6 +16,7 @@ jobs:
         BOOK_NOTION_TOKEN: ${{ secrets.BOOK_NOTION_TOKEN }}
         NOTION_BOOK_URL: ${{ secrets.NOTION_BOOK_URL }}
         DOUBAN_NAME: ${{ secrets.DOUBAN_NAME }}
+        AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
         YEAR: ${{ vars.YEAR }}
         REF: ${{ github.ref }}
         REPOSITORY: ${{ github.repository }}

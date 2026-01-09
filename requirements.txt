@@ -1,6 +1,6 @@
-requests
-notion-client
-github-heatmap
-retrying
-pendulum
-python-dotenv
+  requests
+  notion-client
+  github-heatmap
+  retrying
+  pendulum
+  python-dotenv
