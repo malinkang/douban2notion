@@ -1,5 +1,4 @@
 import argparse
-from email import feedparser
 import json
 import os
 import re

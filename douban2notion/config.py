@@ -22,7 +22,6 @@ book_properties_type_dict = {
     "状态":STATUS,
     "日期":DATE,
     "简介":RICH_TEXT,
-    "豆瓣链接":URL,
     "出版社":MULTI_SELECT,
 }
 
