@@ -44,6 +44,14 @@ jobs:
           assert hasattr(client.databases, 'query'), "query 方法不存在!"
           print("✅ Notion SDK 验证通过")
           EOF
+      - name: 🩹 Apply Patch
+        run: |
+          # 定位系统 site-packages 路径
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "Target path: $SITE_PACKAGES/douban2notion/utils.py"
+          # 用你仓库里那个已经写了 try...except 的 utils.py 覆盖系统原版
+          cp ./douban2notion/utils.py $SITE_PACKAGES/douban2notion/utils.py
+          echo "✅ Patch applied successfully!"
       - name: douban movie sync
         run: |
           douban "movie"
