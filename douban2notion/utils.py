@@ -332,17 +332,16 @@ def get_weread_url(book_id):
     return f"https://weread.qq.com/web/reader/{calculate_book_str_id(book_id)}"
 
 def str_to_timestamp(date):
-    # 1. 拦截空值、非字符串或明显的错误标记
-    if not date or not isinstance(date, str) or date == "Invalid DateTime":
+    # 只要 date 不是正常的字符串，或者长得像错误代码，统统滚粗，返回 0
+    if not isinstance(date, str) or "Invalid" in str(date) or not date:
         return 0
     
     try:
-        # 2. 尝试正常解析
+        # 只有在这里面报错，程序才不会死
         dt = pendulum.parse(date)
         return int(dt.timestamp())
-    except Exception as e:
-        # 3. 遇到奇葩字符串（比如豆瓣改版后的非标日期），打印出来但不报错
-        print(f"⚠️ 发现无法解析的日期数据: [{date}]，已自动跳过。")
+    except:
+        # 就算 pendulum 报错了，我也强行让它返回 0
         return 0
 
 upload_url = 'https://wereadassets.malinkang.com/'
