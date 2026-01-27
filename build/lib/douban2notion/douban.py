@@ -3,6 +3,7 @@ from email import feedparser
 import json
 import os
 import re
+from bs4 import BeautifulSoup
 import pendulum
 from retrying import retry
 import requests
@@ -67,9 +68,6 @@ def fetch_subjects(user, type_, status):
             print(f"size = {len(results)}")
             page += 1
             offset = page * 50
-        else:
-            print(response.text)
-            return results
     return results
 
 
@@ -86,9 +84,10 @@ def insert_movie(douban_name,notion_helper):
             "状态": movie.get("状态"),
             "日期": movie.get("日期"),
             "评分": movie.get("评分"),
+            "演员": movie.get("演员"),
+            "IMDB": movie.get("IMDB"),
             "page_id": i.get("id")
         }
-    print(f"notion {len(notion_movie_dict)}")
     results = []
     for i in movie_status.keys():
         results.extend(fetch_subjects(douban_name, "movie", i))
@@ -117,8 +116,28 @@ def insert_movie(douban_name,notion_helper):
                 or notion_movive.get("短评") != movie.get("短评")
                 or notion_movive.get("状态") != movie.get("状态")
                 or notion_movive.get("评分") != movie.get("评分")
+                or not notion_movive.get("演员")
+                or not notion_movive.get("IMDB")
             ):
+                if not notion_movive.get("演员") and subject.get("actors"):
+                    l = []
+                    actors = subject.get("actors")[0:5]
+                    for actor in actors:
+                        if actor.get("name"):
+                            if "/" in actor.get("name"):
+                                l.extend(actor.get("name").split("/"))
+                            else:
+                                l.append(actor.get("name"))  
+                    movie["演员"] = [
+                        notion_helper.get_relation_id(
+                            x.get("name"), notion_helper.actor_database_id, USER_ICON_URL
+                        )
+                        for x in actors
+                    ]
+                if not notion_movive.get("IMDB"):
+                    movie["IMDB"] = get_imdb(movie.get("豆瓣链接"))
                 properties = utils.get_properties(movie, movie_properties_type_dict)
+                print(movie.get("电影名"))
                 notion_helper.get_date_relation(properties,create_time)
                 notion_helper.update_page(
                     page_id=notion_movive.get("page_id"),
@@ -141,7 +160,7 @@ def insert_movie(douban_name,notion_helper):
                 ]
             if subject.get("actors"):
                 l = []
-                actors = subject.get("actors")[0:100]
+                actors = subject.get("actors")[0:5]
                 for actor in actors:
                     if actor.get("name"):
                         if "/" in actor.get("name"):
@@ -152,14 +171,14 @@ def insert_movie(douban_name,notion_helper):
                     notion_helper.get_relation_id(
                         x.get("name"), notion_helper.actor_database_id, USER_ICON_URL
                     )
-                    for x in subject.get("actors")[0:100]
+                    for x in actors
                 ]
             if subject.get("directors"):
                 movie["导演"] = [
                     notion_helper.get_relation_id(
                         x.get("name"), notion_helper.director_database_id, USER_ICON_URL
                     )
-                    for x in subject.get("directors")[0:100]
+                    for x in subject.get("directors")[0:5]
                 ]
             properties = utils.get_properties(movie, movie_properties_type_dict)
             notion_helper.get_date_relation(properties,create_time)
@@ -170,7 +189,15 @@ def insert_movie(douban_name,notion_helper):
             notion_helper.create_page(
                 parent=parent, properties=properties, icon=get_icon(cover)
             )
-
+def get_imdb(link):
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'}
+    response = requests.get(link, headers=headers)
+    soup = BeautifulSoup(response.content)
+    info = soup.find(id='info')
+    if info:
+        for span in info.find_all('span', {'class': 'pl'}):
+            if ('IMDb:' == span.string):
+                return span.next_sibling.string.strip()
 
 def insert_book(douban_name,notion_helper):
     notion_books = notion_helper.query_all(database_id=notion_helper.book_database_id)
@@ -270,7 +297,4 @@ def main():
     else:
         insert_book(douban_name,notion_helper)
 if __name__ == "__main__":
-    # main()
-    douban_name = os.getenv("DOUBAN_NAME", None)
-    for i in movie_status.keys():
-        fetch_subjects(douban_name, "movie", i)
+    main()

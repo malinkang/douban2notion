@@ -85,7 +85,8 @@ class NotionHelper:
         )
         if self.day_database_id:
             self.write_database_id(self.day_database_id)
-        self.update_movie_database()
+        if is_movie:
+            self.update_movie_database()
 
     def write_database_id(self, database_id):
         env_file = os.getenv('GITHUB_ENV')

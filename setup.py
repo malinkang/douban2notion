@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    version="0.0.12",
+    version="0.0.14",
     packages=find_packages(),
     install_requires=[
         "requests",
@@ -10,6 +10,8 @@ setup(
         "notion-client",
         "github-heatmap",
         "python-dotenv",
+        "beautifulsoup4",
+        "lxml",
     ],
     entry_points={
         "console_scripts": [

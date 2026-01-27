@@ -16,6 +16,7 @@ jobs:
         MOVIE_NOTION_TOKEN: ${{ secrets.MOVIE_NOTION_TOKEN }}
         NOTION_MOVIE_URL: ${{ secrets.NOTION_MOVIE_URL }}
         DOUBAN_NAME: ${{ secrets.DOUBAN_NAME }}
+        AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
         YEAR: ${{ vars.YEAR }}
         REF: ${{ github.ref }}
         REPOSITORY: ${{ github.repository }}

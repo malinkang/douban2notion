@@ -211,8 +211,10 @@ def insert_book(douban_name,notion_helper):
             "状态": book.get("状态"),
             "日期": book.get("日期"),
             "评分": book.get("评分"),
-            "page_id": i.get("id")
+            "封面": book.get("封面"),
+            "page_id": i.get("id"),
         }
+        print(i)
     print(f"notion {len(notion_book_dict)}")
     results = []
     for i in book_status.keys():
@@ -230,6 +232,10 @@ def insert_book(douban_name,notion_helper):
         book["日期"] = create_time.int_timestamp
         book["豆瓣链接"] = subject.get("url")
         book["状态"] = book_status.get(result.get("status"))
+        cover = subject.get("pic").get("large")
+        if not cover.endswith('.webp'):
+            cover = cover.rsplit('.', 1)[0] + '.webp'
+        book["封面"] = cover
         if result.get("rating"):
             book["评分"] = rating.get(result.get("rating").get("value"))
         if result.get("comment"):
@@ -237,11 +243,14 @@ def insert_book(douban_name,notion_helper):
         if notion_book_dict.get(book.get("豆瓣链接")):
             notion_movive = notion_book_dict.get(book.get("豆瓣链接"))
             if (
-                notion_movive.get("日期") != book.get("日期")
+                notion_movive.get("封面") is None
+                or notion_movive.get("封面") != book.get("封面")
+                or notion_movive.get("日期") != book.get("日期")
                 or notion_movive.get("短评") != book.get("短评")
                 or notion_movive.get("状态") != book.get("状态")
                 or notion_movive.get("评分") != book.get("评分")
             ):
+                print(f"更新{book.get('书名')}")
                 properties = utils.get_properties(book, book_properties_type_dict)
                 notion_helper.get_date_relation(properties,create_time)
                 notion_helper.update_page(
@@ -251,8 +260,6 @@ def insert_book(douban_name,notion_helper):
 
         else:
             print(f"插入{book.get('书名')}")
-            cover = subject.get("pic").get("large")
-            book["封面"] = cover
             book["简介"] = subject.get("intro")
             press = []
             for i in subject.get("press"):
