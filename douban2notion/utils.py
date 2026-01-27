@@ -332,11 +332,23 @@ def get_weread_url(book_id):
     return f"https://weread.qq.com/web/reader/{calculate_book_str_id(book_id)}"
 
 def str_to_timestamp(date):
-    if date == None:
+    # 1. 基础防空检查
+    if date is None:
         return 0
-    dt = pendulum.parse(date)
-    # 获取时间戳
-    return int(dt.timestamp())
+    
+    # 2. 检查非法字符串占位符
+    # Notion API 有时在日期解析失败或为空时会返回特定的错误描述字符串
+    if not isinstance(date, str) or date == "Invalid DateTime" or date == "":
+        return 0
+
+    try:
+        # 3. 尝试解析
+        dt = pendulum.parse(date)
+        return int(dt.timestamp())
+    except Exception as e:
+        # 4. 万一解析还是失败（比如豆瓣抓到了奇葩格式），打印一下并跳过
+        print(f"⚠️ 日期解析失败: {date}, 错误: {e}")
+        return 0
 
 upload_url = 'https://wereadassets.malinkang.com/'
 
