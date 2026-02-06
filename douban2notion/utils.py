@@ -332,11 +332,17 @@ def get_weread_url(book_id):
     return f"https://weread.qq.com/web/reader/{calculate_book_str_id(book_id)}"
 
 def str_to_timestamp(date):
-    if date == None:
+    # 只要 date 不是正常的字符串，或者长得像错误代码，统统滚粗，返回 0
+    if not isinstance(date, str) or "Invalid" in str(date) or not date:
         return 0
-    dt = pendulum.parse(date)
-    # 获取时间戳
-    return int(dt.timestamp())
+    
+    try:
+        # 只有在这里面报错，程序才不会死
+        dt = pendulum.parse(date)
+        return int(dt.timestamp())
+    except:
+        # 就算 pendulum 报错了，我也强行让它返回 0
+        return 0
 
 upload_url = 'https://wereadassets.malinkang.com/'
 
