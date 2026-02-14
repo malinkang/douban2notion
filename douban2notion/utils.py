@@ -331,12 +331,17 @@ def transform_id(book_id):
 def get_weread_url(book_id):
     return f"https://weread.qq.com/web/reader/{calculate_book_str_id(book_id)}"
 
-def str_to_timestamp(date):
-    if date == None:
+def str_to_timestamp(date_str):
+    if not date_str:
         return 0
-    dt = pendulum.parse(date)
-    # 获取时间戳
-    return int(dt.timestamp())
+
+    try:
+        dt = pendulum.parse(date_str)
+        # 获取时间戳
+        return int(dt.timestamp())
+    except Exception as e:
+        print(f"⚠️  无法解析日期 '{date_str}': {type(e).__name__}")
+        return 0
 
 upload_url = 'https://wereadassets.malinkang.com/'
 
