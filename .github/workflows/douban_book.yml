@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 16 * * *"
+permissions:
+  contents: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -48,23 +50,29 @@ jobs:
         run: |
             heatmap "book"
       - name: push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
           ARTIFACT_BRANCH="heatmap-artifacts"
-          TMP_DIR="$(mktemp -d)"
-          mkdir -p "$TMP_DIR/OUT_FOLDER"
-          cp -R OUT_FOLDER/. "$TMP_DIR/OUT_FOLDER/" 2>/dev/null || true
-          git fetch origin "$ARTIFACT_BRANCH" || true
-          if git show-ref --verify --quiet "refs/remotes/origin/$ARTIFACT_BRANCH"; then
-            git switch -C "$ARTIFACT_BRANCH" "origin/$ARTIFACT_BRANCH"
+          WORK_DIR="$(mktemp -d)"
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" "$ARTIFACT_BRANCH" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "$ARTIFACT_BRANCH" "$REPO_URL" "$WORK_DIR/repo"
           else
-            git switch --orphan "$ARTIFACT_BRANCH"
+            git clone --depth 1 "$REPO_URL" "$WORK_DIR/repo"
+            cd "$WORK_DIR/repo"
+            git checkout --orphan "$ARTIFACT_BRANCH"
             git rm -rf . >/dev/null 2>&1 || true
+            cd - >/dev/null
           fi
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          mkdir -p OUT_FOLDER
-          cp -R "$TMP_DIR/OUT_FOLDER/." OUT_FOLDER/
+
+          mkdir -p "$WORK_DIR/repo/OUT_FOLDER"
+          cp -R OUT_FOLDER/. "$WORK_DIR/repo/OUT_FOLDER/" 2>/dev/null || true
+
+          cd "$WORK_DIR/repo"
           git add OUT_FOLDER
           git commit -m 'update heatmap artifacts' || echo "nothing to commit"
-          git push origin "$ARTIFACT_BRANCH" || echo "nothing to push"
+          git push origin "HEAD:$ARTIFACT_BRANCH" || echo "nothing to push"
