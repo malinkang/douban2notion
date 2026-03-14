@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 16 * * *"
+permissions:
+  contents: write
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -32,6 +34,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install .
       - name: douban book sync
         run: |
           douban "book"
@@ -47,10 +50,29 @@ jobs:
         run: |
             heatmap "book"
       - name: push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m 'add new heatmap' || echo "nothing to commit"
-          git pull --rebase origin main
-          git push || echo "nothing to push"
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          ARTIFACT_BRANCH="heatmap-artifacts"
+          WORK_DIR="$(mktemp -d)"
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" "$ARTIFACT_BRANCH" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "$ARTIFACT_BRANCH" "$REPO_URL" "$WORK_DIR/repo"
+          else
+            git clone --depth 1 "$REPO_URL" "$WORK_DIR/repo"
+            cd "$WORK_DIR/repo"
+            git checkout --orphan "$ARTIFACT_BRANCH"
+            git rm -rf . >/dev/null 2>&1 || true
+            cd - >/dev/null
+          fi
+
+          mkdir -p "$WORK_DIR/repo/OUT_FOLDER"
+          cp -R OUT_FOLDER/. "$WORK_DIR/repo/OUT_FOLDER/" 2>/dev/null || true
+
+          cd "$WORK_DIR/repo"
+          git add OUT_FOLDER
+          git commit -m 'update heatmap artifacts' || echo "nothing to commit"
+          git push origin "HEAD:$ARTIFACT_BRANCH" || echo "nothing to push"
