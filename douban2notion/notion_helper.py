@@ -48,6 +48,7 @@ class NotionHelper:
                 notion_token = os.getenv("BOOK_NOTION_TOKEN")
         self.client = Client(auth=notion_token, log_level=logging.ERROR)
         self.__cache = {}
+        self.heatmap_block_id = None
         self.page_id = self.extract_page_id(page_url)
         self.search_database(self.page_id)
         for key in self.database_name_dict.keys():
