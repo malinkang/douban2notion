@@ -9,6 +9,7 @@ import pendulum
 
 from douban2notion import douban
 from douban2notion import notion_helper
+from douban2notion import utils
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -232,6 +233,31 @@ class FreeRuntimeTest(unittest.TestCase):
         )
         self.assertEqual(
             helper.client.pages.update.call_args.kwargs["properties"], expected
+        )
+
+    def test_missing_optional_relation_database_is_skipped(self):
+        helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
+        helper.client = Mock()
+        helper._NotionHelper__cache = {}
+
+        self.assertIsNone(
+            helper.get_relation_id(
+                "actor-name",
+                None,
+                notion_helper.USER_ICON_URL,
+            )
+        )
+        helper.client.databases.query.assert_not_called()
+
+    def test_relation_payloads_drop_empty_optional_ids(self):
+        properties = utils.get_properties(
+            {"演员": ["actor-page-id", None], "空的演员": [None]},
+            {"演员": "relation", "空的演员": "relation"},
+        )
+
+        self.assertEqual(
+            properties,
+            {"演员": {"relation": [{"id": "actor-page-id"}]}},
         )
 
 
