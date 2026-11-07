@@ -226,7 +226,7 @@ class NotionHelper:
         id = self.movie_database_id
         properties = self._get_database_properties(id)
         update_properties = {}
-        if (
+        if self.actor_database_id and (
             properties.get("演员") is None
             or properties.get("演员").get("type") != "relation"
         ):
@@ -242,6 +242,8 @@ class NotionHelper:
     
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def get_relation_id(self, name, id, icon, properties=None):
+        if not id:
+            return None
         properties = dict(properties or {})
         key = f"{id}{name}"
         if key in self.__cache:
