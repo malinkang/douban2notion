@@ -260,6 +260,17 @@ class FreeRuntimeTest(unittest.TestCase):
             {"演员": {"relation": [{"id": "actor-page-id"}]}},
         )
 
+    def test_legacy_items_without_link_are_keyed_by_title(self):
+        self.assertEqual(
+            douban._notion_item_key(None, "  沃特希普陨落记  "),
+            ("title", "沃特希普陨落记"),
+        )
+        self.assertEqual(
+            douban._notion_item_key("https://movie.douban.com/subject/1/", "标题"),
+            ("url", "https://movie.douban.com/subject/1/"),
+        )
+        self.assertIsNone(douban._notion_item_key("", "  "))
+
 
 if __name__ == "__main__":
     unittest.main()

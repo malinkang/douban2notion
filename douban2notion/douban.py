@@ -132,6 +132,14 @@ def fetch_subjects(user, type_, status):
     return results
 
 
+def _notion_item_key(link, title):
+    for kind, value in (("url", link), ("title", title)):
+        normalized = str(value or "").strip()
+        if normalized:
+            return kind, normalized
+    return None
+
+
 
 def insert_movie(douban_name,notion_helper):
     notion_movies = notion_helper.query_all(database_id=notion_helper.movie_database_id)
@@ -140,15 +148,17 @@ def insert_movie(douban_name,notion_helper):
         movie = {}
         for key, value in i.get("properties").items():
             movie[key] = utils.get_property_value(value)
-        notion_movie_dict[movie.get("豆瓣链接")] = {
-            "短评": movie.get("短评"),
-            "状态": movie.get("状态"),
-            "日期": movie.get("日期"),
-            "评分": movie.get("评分"),
-            "演员": movie.get("演员"),
-            "IMDB": movie.get("IMDB"),
-            "page_id": i.get("id")
-        }
+        item_key = _notion_item_key(movie.get("豆瓣链接"), movie.get("电影名"))
+        if item_key:
+            notion_movie_dict[item_key] = {
+                "短评": movie.get("短评"),
+                "状态": movie.get("状态"),
+                "日期": movie.get("日期"),
+                "评分": movie.get("评分"),
+                "演员": movie.get("演员"),
+                "IMDB": movie.get("IMDB"),
+                "page_id": i.get("id")
+            }
     results = []
     for i in movie_status.keys():
         results.extend(fetch_subjects(douban_name, "movie", i))
@@ -170,8 +180,9 @@ def insert_movie(douban_name,notion_helper):
             movie["评分"] = rating.get(result.get("rating").get("value"))
         if result.get("comment"):
             movie["短评"] = result.get("comment")
-        if notion_movie_dict.get(movie.get("豆瓣链接")):
-            notion_movive = notion_movie_dict.get(movie.get("豆瓣链接"))
+        item_key = _notion_item_key(movie.get("豆瓣链接"), movie.get("电影名"))
+        if item_key and notion_movie_dict.get(item_key):
+            notion_movive = notion_movie_dict.get(item_key)
             if (
                 notion_movive.get("日期") != movie.get("日期")
                 or notion_movive.get("短评") != movie.get("短评")
@@ -275,14 +286,16 @@ def insert_book(douban_name,notion_helper):
         book = {}
         for key, value in i.get("properties").items():
             book[key] = utils.get_property_value(value)
-        notion_book_dict[book.get("豆瓣链接")] = {
-            "短评": book.get("短评"),
-            "状态": book.get("状态"),
-            "日期": book.get("日期"),
-            "评分": book.get("评分"),
-            "封面": book.get("封面"),
-            "page_id": i.get("id"),
-        }
+        item_key = _notion_item_key(book.get("豆瓣链接"), book.get("书名"))
+        if item_key:
+            notion_book_dict[item_key] = {
+                "短评": book.get("短评"),
+                "状态": book.get("状态"),
+                "日期": book.get("日期"),
+                "评分": book.get("评分"),
+                "封面": book.get("封面"),
+                "page_id": i.get("id"),
+            }
         print(i)
     print(f"notion {len(notion_book_dict)}")
     results = []
@@ -309,8 +322,9 @@ def insert_book(douban_name,notion_helper):
             book["评分"] = rating.get(result.get("rating").get("value"))
         if result.get("comment"):
             book["短评"] = result.get("comment")
-        if notion_book_dict.get(book.get("豆瓣链接")):
-            notion_movive = notion_book_dict.get(book.get("豆瓣链接"))
+        item_key = _notion_item_key(book.get("豆瓣链接"), book.get("书名"))
+        if item_key and notion_book_dict.get(item_key):
+            notion_movive = notion_book_dict.get(item_key)
             if (
                 notion_movive.get("封面") is None
                 or notion_movive.get("封面") != book.get("封面")
