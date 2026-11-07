@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import requests
+import pendulum
 
 from douban2notion import douban
 from douban2notion import notion_helper
@@ -138,6 +139,67 @@ class FreeRuntimeTest(unittest.TestCase):
         ), patch.object(notion_helper, "Client"):
             with self.assertRaisesRegex(ValueError, "未找到书架数据库"):
                 notion_helper.NotionHelper("book")
+
+    def test_day_relation_omits_columns_missing_from_legacy_database(self):
+        helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
+        helper.day_database_id = "day-database-id"
+        helper.year_database_id = "year-database-id"
+        helper.month_database_id = "month-database-id"
+        helper.week_database_id = "week-database-id"
+        helper._database_properties_cache = {
+            "day-database-id": {
+                "标题": {"type": "title"},
+                "日期": {"type": "date"},
+            }
+        }
+        helper.get_year_relation_id = Mock()
+        helper.get_month_relation_id = Mock()
+        helper.get_week_relation_id = Mock()
+        helper.get_relation_id = Mock(return_value="day-page-id")
+
+        helper.get_day_relation_id(pendulum.datetime(2026, 11, 8, 12, 0, 0))
+
+        properties = helper.get_relation_id.call_args.args[3]
+        self.assertEqual(set(properties), {"日期"})
+        helper.get_year_relation_id.assert_not_called()
+        helper.get_month_relation_id.assert_not_called()
+        helper.get_week_relation_id.assert_not_called()
+
+    def test_date_relations_are_only_added_when_target_columns_exist(self):
+        helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
+        helper.target_database_id = "movie-database-id"
+        helper.year_database_id = "year-database-id"
+        helper.month_database_id = "month-database-id"
+        helper.week_database_id = "week-database-id"
+        helper.day_database_id = "day-database-id"
+        helper._database_properties_cache = {
+            "movie-database-id": {
+                "电影名": {"type": "title"},
+                "日期": {"type": "date"},
+            }
+        }
+        for getter_name in (
+            "get_year_relation_id",
+            "get_month_relation_id",
+            "get_week_relation_id",
+            "get_day_relation_id",
+        ):
+            setattr(helper, getter_name, Mock())
+
+        properties = {}
+        helper.get_date_relation(
+            properties,
+            pendulum.datetime(2026, 11, 8, 12, 0, 0),
+        )
+
+        self.assertEqual(properties, {})
+        for getter_name in (
+            "get_year_relation_id",
+            "get_month_relation_id",
+            "get_week_relation_id",
+            "get_day_relation_id",
+        ):
+            getattr(helper, getter_name).assert_not_called()
 
 
 if __name__ == "__main__":

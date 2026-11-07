@@ -50,6 +50,7 @@ class NotionHelper:
         self.database_name_dict = dict(self.database_name_dict)
         self.database_id_dict = {}
         self.__cache = {}
+        self._database_properties_cache = {}
         self.heatmap_block_id = None
         self.page_id = self.extract_page_id(page_url) if page_url else None
         if self.page_id:
@@ -96,6 +97,7 @@ class NotionHelper:
         required_database_id = (
             self.movie_database_id if is_movie else self.book_database_id
         )
+        self.target_database_id = required_database_id
         if not required_database_id:
             target = "电影" if is_movie else "书架"
             raise ValueError(
@@ -178,30 +180,43 @@ class NotionHelper:
         properties = {
             "日期": get_date(format_date(date)),
         }
-        properties["年"] = get_relation(
-            [
-                self.get_year_relation_id(new_date),
-            ]
+        relation_getters = (
+            ("年", self.year_database_id, self.get_year_relation_id),
+            ("月", self.month_database_id, self.get_month_relation_id),
+            ("周", self.week_database_id, self.get_week_relation_id),
         )
-        properties["月"] = get_relation(
-            [
-                self.get_month_relation_id(new_date),
-            ]
-        )
-        properties["周"] = get_relation(
-            [
-                self.get_week_relation_id(new_date),
-            ]
-        )
+        for name, database_id, getter in relation_getters:
+            if database_id and self._supports_relation_property(
+                self.day_database_id, name
+            ):
+                properties[name] = get_relation([getter(new_date)])
         return self.get_relation_id(
             day, self.day_database_id, TARGET_ICON_URL, properties
         )
-    
+
+    def _get_database_properties(self, database_id):
+        if not database_id:
+            return {}
+        if database_id not in self._database_properties_cache:
+            response = self.client.databases.retrieve(database_id=database_id)
+            self._database_properties_cache[database_id] = (
+                response.get("properties") or {}
+            )
+        return self._database_properties_cache[database_id]
+
+    def _supports_relation_property(self, database_id, property_name):
+        property_definition = self._get_database_properties(database_id).get(
+            property_name
+        )
+        return (
+            property_definition is not None
+            and property_definition.get("type") == "relation"
+        )
+
     def update_movie_database(self):
         """更新数据库"""
-        response = self.client.databases.retrieve(database_id=self.movie_database_id)
-        id = response.get("id")
-        properties = response.get("properties")
+        id = self.movie_database_id
+        properties = self._get_database_properties(id)
         update_properties = {}
         if (
             properties.get("演员") is None
@@ -215,9 +230,11 @@ class NotionHelper:
             update_properties["IMDB"] = {"rich_text": {}}
         if len(update_properties) > 0:
             self.client.databases.update(database_id=id, properties=update_properties)
+            properties.update(update_properties)
     
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
-    def get_relation_id(self, name, id, icon, properties={}):
+    def get_relation_id(self, name, id, icon, properties=None):
+        properties = dict(properties or {})
         key = f"{id}{name}"
         if key in self.__cache:
             return self.__cache.get(key)
@@ -310,23 +327,14 @@ class NotionHelper:
         return results
 
     def get_date_relation(self, properties, date):
-        properties["年"] = get_relation(
-            [
-                self.get_year_relation_id(date),
-            ]
+        relation_getters = (
+            ("年", self.year_database_id, self.get_year_relation_id),
+            ("月", self.month_database_id, self.get_month_relation_id),
+            ("周", self.week_database_id, self.get_week_relation_id),
+            ("日", self.day_database_id, self.get_day_relation_id),
         )
-        properties["月"] = get_relation(
-            [
-                self.get_month_relation_id(date),
-            ]
-        )
-        properties["周"] = get_relation(
-            [
-                self.get_week_relation_id(date),
-            ]
-        )
-        properties["日"] = get_relation(
-            [
-                self.get_day_relation_id(date),
-            ]
-        )
+        for name, database_id, getter in relation_getters:
+            if database_id and self._supports_relation_property(
+                self.target_database_id, name
+            ):
+                properties[name] = get_relation([getter(date)])
