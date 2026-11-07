@@ -1,8 +1,10 @@
 import logging
 import os
 import re
+import time
 
 from notion_client import Client
+from notion_client.errors import APIErrorCode, APIResponseError
 from retrying import retry
 
 from douban2notion.utils import (
@@ -20,6 +22,56 @@ TAG_ICON_URL = "https://www.notion.so/icons/tag_gray.svg"
 USER_ICON_URL = "https://www.notion.so/icons/user-circle-filled_gray.svg"
 TARGET_ICON_URL = "https://www.notion.so/icons/target_red.svg"
 BOOKMARK_ICON_URL = "https://www.notion.so/icons/bookmark_gray.svg"
+NOTION_REQUESTS_PER_SECOND = 3.0
+NOTION_RATE_LIMIT_MAX_RETRIES = 10
+NOTION_RATE_LIMIT_MAX_WAIT_SECONDS = 60.0
+
+
+def _rate_limit_wait_seconds(error, attempt):
+    retry_after = (getattr(error, "headers", None) or {}).get("Retry-After")
+    try:
+        wait_seconds = float(retry_after)
+    except (TypeError, ValueError):
+        wait_seconds = float(2**attempt)
+    return min(max(wait_seconds, 0.05), NOTION_RATE_LIMIT_MAX_WAIT_SECONDS)
+
+
+class RateLimitedNotionClient(Client):
+    """Keep Notion writes below the API limit and retry sustained 429s."""
+
+    def __init__(
+        self,
+        *,
+        min_request_interval=1.0 / NOTION_REQUESTS_PER_SECOND,
+        max_rate_limit_retries=NOTION_RATE_LIMIT_MAX_RETRIES,
+        **kwargs,
+    ):
+        self._min_request_interval = max(float(min_request_interval), 0.0)
+        self._max_rate_limit_retries = max(int(max_rate_limit_retries), 0)
+        self._last_request_at = float("-inf")
+        super().__init__(**kwargs)
+
+    def _wait_for_request_slot(self):
+        now = time.monotonic()
+        wait_seconds = self._min_request_interval - (now - self._last_request_at)
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+            now += wait_seconds
+        self._last_request_at = now
+
+    def request(self, *args, **kwargs):
+        for attempt in range(self._max_rate_limit_retries + 1):
+            self._wait_for_request_slot()
+            try:
+                return super().request(*args, **kwargs)
+            except APIResponseError as error:
+                if (
+                    getattr(error, "code", None) != APIErrorCode.RateLimited
+                    or attempt >= self._max_rate_limit_retries
+                ):
+                    raise
+                time.sleep(_rate_limit_wait_seconds(error, attempt))
+        raise AssertionError("unreachable")
 
 
 class NotionHelper:
@@ -46,7 +98,10 @@ class NotionHelper:
                 notion_token = os.getenv("MOVIE_NOTION_TOKEN")
             else:
                 notion_token = os.getenv("BOOK_NOTION_TOKEN")
-        self.client = Client(auth=notion_token, log_level=logging.ERROR)
+        self.client = RateLimitedNotionClient(
+            auth=notion_token,
+            log_level=logging.ERROR,
+        )
         self.database_name_dict = dict(self.database_name_dict)
         self.database_id_dict = {}
         self.__cache = {}
