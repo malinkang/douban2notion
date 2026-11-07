@@ -34,6 +34,7 @@ book_status = {
     "done": "读过",
 }
 AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+DOUBAN_REQUEST_TIMEOUT = (10, 30)
 
 headers = {
     "host": DOUBAN_API_HOST,
@@ -41,33 +42,51 @@ headers = {
     "user-agent": "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.16(0x18001023) NetType/WIFI Language/zh_CN",
     "referer": "https://servicewechat.com/wx2f9b06c1de1ccfca/84/page-frame.html",
 }
+
+
+class DoubanApiError(RuntimeError):
+    pass
+
+
+def _fetch_interest_page(user, type_, status, offset):
+    url = f"https://{DOUBAN_API_HOST}/api/v2/user/{user}/interests"
+    params = {
+        "type": type_,
+        "count": 50,
+        "status": status,
+        "start": offset,
+        "apiKey": DOUBAN_API_KEY,
+    }
+    response = requests.get(
+        url,
+        headers=headers,
+        params=params,
+        timeout=DOUBAN_REQUEST_TIMEOUT,
+    )
+    if not response.ok:
+        raise DoubanApiError(
+            f"Douban interests request failed with HTTP {response.status_code}"
+        )
+    payload = response.json()
+    interests = payload.get("interests") if isinstance(payload, dict) else None
+    if not isinstance(interests, list):
+        raise DoubanApiError("Douban interests response is missing a list")
+    return interests
+
+
 @retry(stop_max_attempt_number=3, wait_fixed=5000)
 def fetch_subjects(user, type_, status):
     offset = 0
     page = 0
-    url = f"https://{DOUBAN_API_HOST}/api/v2/user/{user}/interests"
-    total = 0
     results = []
     while True:
-        params = {
-            "type": type_,
-            "count": 50,
-            "status": status,
-            "start": offset,
-            "apiKey": DOUBAN_API_KEY,
-        }
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.ok:
-            response = response.json()
-            interests = response.get("interests")
-            if len(interests)==0:
-                break
-            results.extend(interests)
-            print(f"total = {total}")
-            print(f"size = {len(results)}")
-            page += 1
-            offset = page * 50
+        interests = _fetch_interest_page(user, type_, status, offset)
+        if not interests:
+            break
+        results.extend(interests)
+        print(f"size = {len(results)}")
+        page += 1
+        offset = page * 50
     return results
 
 
@@ -191,7 +210,8 @@ def insert_movie(douban_name,notion_helper):
             )
 def get_imdb(link):
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'}
-    response = requests.get(link, headers=headers)
+    response = requests.get(link, headers=headers, timeout=DOUBAN_REQUEST_TIMEOUT)
+    response.raise_for_status()
     soup = BeautifulSoup(response.content)
     info = soup.find(id='info')
     if info:
