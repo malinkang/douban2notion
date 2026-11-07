@@ -38,12 +38,50 @@ class FreeRuntimeTest(unittest.TestCase):
         self.assertEqual(interests, [{"subject": {}}])
         self.assertEqual(get.call_args.kwargs["timeout"], (10, 30))
         self.assertEqual(get.call_args.kwargs["params"]["start"], 50)
+        self.assertEqual(get.call_args.kwargs["params"]["apikey"], douban.DOUBAN_API_KEY)
 
     def test_interest_page_http_error_fails_instead_of_looping(self):
         response = Mock(ok=False, status_code=429)
+        response.json.return_value = {"code": 429}
         with patch("douban2notion.douban.requests.get", return_value=response):
             with self.assertRaisesRegex(douban.DoubanApiError, "HTTP 429"):
                 douban._fetch_interest_page("user", "movie", "done", 0)
+
+    def test_expired_token_retries_public_interests_without_authorization(self):
+        expired = Mock(ok=False, status_code=400)
+        expired.json.return_value = {"code": 106, "msg": "access_token_has_expired"}
+        public = Mock(ok=True, status_code=200)
+        public.json.return_value = {"interests": [{"subject": {}}]}
+        with patch.object(douban, "AUTH_TOKEN", "expired-token"), patch(
+            "douban2notion.douban.requests.get",
+            side_effect=[expired, public],
+        ) as get:
+            interests = douban._fetch_interest_page("user", "movie", "done", 0)
+
+        self.assertEqual(interests, [{"subject": {}}])
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(
+            get.call_args_list[0].kwargs["headers"]["authorization"],
+            "Bearer expired-token",
+        )
+        self.assertNotIn("authorization", get.call_args_list[1].kwargs["headers"])
+        self.assertFalse(
+            get.call_args_list[1].kwargs["headers"]["user-agent"].startswith(
+                "User-Agent:"
+            )
+        )
+
+    def test_non_token_http_error_is_not_retried(self):
+        response = Mock(ok=False, status_code=429)
+        response.json.return_value = {"code": 429}
+        with patch.object(douban, "AUTH_TOKEN", "current-token"), patch(
+            "douban2notion.douban.requests.get",
+            return_value=response,
+        ) as get:
+            with self.assertRaisesRegex(douban.DoubanApiError, "code=429"):
+                douban._fetch_interest_page("user", "movie", "done", 0)
+
+        self.assertEqual(get.call_count, 1)
 
     def test_interest_page_missing_list_fails_instead_of_looping(self):
         response = Mock(ok=True, status_code=200)
