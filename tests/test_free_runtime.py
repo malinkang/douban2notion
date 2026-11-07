@@ -4,8 +4,10 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+import httpx
 import requests
 import pendulum
+from notion_client.errors import APIErrorCode, APIResponseError
 
 from douban2notion import douban
 from douban2notion import notion_helper
@@ -110,6 +112,52 @@ class FreeRuntimeTest(unittest.TestCase):
             get.call_args.kwargs["timeout"],
             douban.DOUBAN_REQUEST_TIMEOUT,
         )
+
+    def test_notion_client_retries_rate_limits_and_respects_retry_after(self):
+        class RateLimitError(APIResponseError):
+            def __init__(self):
+                self.code = APIErrorCode.RateLimited
+                self.headers = httpx.Headers({"Retry-After": "7"})
+
+        rate_limited = RateLimitError()
+        with patch.object(
+            notion_helper.Client,
+            "request",
+            side_effect=[rate_limited, {"ok": True}],
+        ) as request, patch("douban2notion.notion_helper.time.sleep") as sleep:
+            client = notion_helper.RateLimitedNotionClient(
+                auth="notion-token",
+                min_request_interval=0,
+                max_rate_limit_retries=2,
+            )
+
+            result = client.request("/search", "POST")
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(request.call_count, 2)
+        sleep.assert_called_once_with(7.0)
+
+    def test_notion_client_paces_requests_below_rate_limit(self):
+        with patch.object(
+            notion_helper.Client,
+            "request",
+            return_value={"ok": True},
+        ), patch(
+            "douban2notion.notion_helper.time.monotonic",
+            side_effect=[10.0, 10.1],
+        ), patch(
+            "douban2notion.notion_helper.time.sleep",
+        ) as sleep:
+            client = notion_helper.RateLimitedNotionClient(
+                auth="notion-token",
+                min_request_interval=0.5,
+            )
+
+            client.request("/first", "POST")
+            client.request("/second", "POST")
+
+        sleep.assert_called_once()
+        self.assertAlmostEqual(sleep.call_args.args[0], 0.4)
 
     def test_book_database_id_can_be_configured_without_scanning_a_root_page(self):
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as env_file:
