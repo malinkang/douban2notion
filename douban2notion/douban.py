@@ -251,15 +251,22 @@ def insert_movie(douban_name,notion_helper):
                 parent=parent, properties=properties, icon=get_icon(cover)
             )
 def get_imdb(link):
+    if not link:
+        return None
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'}
-    response = requests.get(link, headers=headers, timeout=DOUBAN_REQUEST_TIMEOUT)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.content)
+    try:
+        response = requests.get(link, headers=headers, timeout=DOUBAN_REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException:
+        # IMDb is optional enrichment; anti-bot responses must not discard the sync.
+        return None
+    soup = BeautifulSoup(response.content, features="lxml")
     info = soup.find(id='info')
     if info:
         for span in info.find_all('span', {'class': 'pl'}):
-            if ('IMDb:' == span.string):
+            if ('IMDb:' == span.string and span.next_sibling):
                 return span.next_sibling.string.strip()
+    return None
 
 def insert_book(douban_name,notion_helper):
     notion_books = notion_helper.query_all(database_id=notion_helper.book_database_id)

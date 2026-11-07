@@ -2,6 +2,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 
+import requests
+
 from douban2notion import douban
 
 
@@ -89,6 +91,20 @@ class FreeRuntimeTest(unittest.TestCase):
         with patch("douban2notion.douban.requests.get", return_value=response):
             with self.assertRaisesRegex(douban.DoubanApiError, "missing a list"):
                 douban._fetch_interest_page("user", "movie", "done", 0)
+
+    def test_optional_imdb_http_error_does_not_abort_the_sync(self):
+        response = Mock()
+        response.raise_for_status.side_effect = requests.HTTPError("HTTP 403")
+        with patch(
+            "douban2notion.douban.requests.get",
+            return_value=response,
+        ) as get:
+            self.assertIsNone(douban.get_imdb("https://movie.douban.com/subject/1/"))
+
+        self.assertEqual(
+            get.call_args.kwargs["timeout"],
+            douban.DOUBAN_REQUEST_TIMEOUT,
+        )
 
 
 if __name__ == "__main__":
