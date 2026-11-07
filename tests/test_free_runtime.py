@@ -201,6 +201,39 @@ class FreeRuntimeTest(unittest.TestCase):
         ):
             getattr(helper, getter_name).assert_not_called()
 
+    def test_page_writes_skip_columns_missing_from_legacy_database(self):
+        helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
+        helper.client = Mock()
+        helper.client.pages.create.return_value = {"id": "new-page-id"}
+        helper.client.pages.update.return_value = {"id": "existing-page-id"}
+        helper.target_database_id = "movie-database-id"
+        helper._database_properties_cache = {
+            "movie-database-id": {
+                "电影名": {"type": "title"},
+                "日期": {"type": "date"},
+            }
+        }
+        properties = {
+            "电影名": {"title": []},
+            "豆瓣链接": {"url": "https://movie.douban.com/subject/1/"},
+            "封面": {"files": []},
+        }
+
+        helper.create_page(
+            {"database_id": "movie-database-id", "type": "database_id"},
+            properties,
+            {"type": "external", "external": {"url": "https://example.com/a.jpg"}},
+        )
+        helper.update_page("existing-page-id", properties)
+
+        expected = {"电影名": {"title": []}}
+        self.assertEqual(
+            helper.client.pages.create.call_args.kwargs["properties"], expected
+        )
+        self.assertEqual(
+            helper.client.pages.update.call_args.kwargs["properties"], expected
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

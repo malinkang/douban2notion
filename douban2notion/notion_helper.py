@@ -213,6 +213,14 @@ class NotionHelper:
             and property_definition.get("type") == "relation"
         )
 
+    def _filter_database_properties(self, database_id, properties):
+        database_properties = self._get_database_properties(database_id)
+        return {
+            name: value
+            for name, value in properties.items()
+            if name in database_properties
+        }
+
     def update_movie_database(self):
         """更新数据库"""
         id = self.movie_database_id
@@ -255,17 +263,31 @@ class NotionHelper:
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def update_book_page(self, page_id, properties):
-        return self.client.pages.update(page_id=page_id, properties=properties)
+        return self.client.pages.update(
+            page_id=page_id,
+            properties=self._filter_database_properties(
+                self.target_database_id, properties
+            ),
+        )
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def update_page(self, page_id, properties):
         return self.client.pages.update(
-            page_id=page_id, properties=properties
+            page_id=page_id,
+            properties=self._filter_database_properties(
+                self.target_database_id, properties
+            ),
         )
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def create_page(self, parent, properties, icon):
-        return self.client.pages.create(parent=parent, properties=properties, icon=icon)
+        return self.client.pages.create(
+            parent=parent,
+            properties=self._filter_database_properties(
+                parent.get("database_id"), properties
+            ),
+            icon=icon,
+        )
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def query(self, **kwargs):
