@@ -38,14 +38,38 @@ DOUBAN_REQUEST_TIMEOUT = (10, 30)
 
 headers = {
     "host": DOUBAN_API_HOST,
-    "authorization": f"Bearer {AUTH_TOKEN}" if AUTH_TOKEN else "",
-    "user-agent": "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.16(0x18001023) NetType/WIFI Language/zh_CN",
+    "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.16(0x18001023) NetType/WIFI Language/zh_CN",
     "referer": "https://servicewechat.com/wx2f9b06c1de1ccfca/84/page-frame.html",
 }
+INVALID_TOKEN_CODES = {103, 106, 109, 111, 112}
 
 
 class DoubanApiError(RuntimeError):
     pass
+
+
+def _request_headers(use_token):
+    request_headers = dict(headers)
+    if use_token and AUTH_TOKEN:
+        request_headers["authorization"] = f"Bearer {AUTH_TOKEN}"
+    return request_headers
+
+
+def _response_error_code(response):
+    try:
+        payload = response.json()
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    code = payload.get("code")
+    if isinstance(code, bool):
+        return None
+    if isinstance(code, int):
+        return code
+    if isinstance(code, str) and code.isdigit() and len(code) <= 6:
+        return int(code)
+    return None
 
 
 def _fetch_interest_page(user, type_, status, offset):
@@ -55,17 +79,35 @@ def _fetch_interest_page(user, type_, status, offset):
         "count": 50,
         "status": status,
         "start": offset,
-        "apiKey": DOUBAN_API_KEY,
+        "apikey": DOUBAN_API_KEY,
     }
     response = requests.get(
         url,
-        headers=headers,
+        headers=_request_headers(True),
         params=params,
         timeout=DOUBAN_REQUEST_TIMEOUT,
     )
+    error_code = None if response.ok else _response_error_code(response)
+    if (
+        not response.ok
+        and AUTH_TOKEN
+        and (
+            response.status_code == 401
+            or error_code in INVALID_TOKEN_CODES
+        )
+    ):
+        # Public interests remain available when a saved mobile token expires.
+        response = requests.get(
+            url,
+            headers=_request_headers(False),
+            params=params,
+            timeout=DOUBAN_REQUEST_TIMEOUT,
+        )
+        error_code = None if response.ok else _response_error_code(response)
     if not response.ok:
+        code_detail = f", code={error_code}" if error_code is not None else ""
         raise DoubanApiError(
-            f"Douban interests request failed with HTTP {response.status_code}"
+            f"Douban interests request failed with HTTP {response.status_code}{code_detail}"
         )
     payload = response.json()
     interests = payload.get("interests") if isinstance(payload, dict) else None
