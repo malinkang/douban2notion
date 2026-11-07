@@ -1,10 +1,13 @@
 from pathlib import Path
+import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
 import requests
 
 from douban2notion import douban
+from douban2notion import notion_helper
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +108,36 @@ class FreeRuntimeTest(unittest.TestCase):
             get.call_args.kwargs["timeout"],
             douban.DOUBAN_REQUEST_TIMEOUT,
         )
+
+    def test_book_database_id_can_be_configured_without_scanning_a_root_page(self):
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as env_file:
+            env_path = env_file.name
+        try:
+            with patch.dict(
+                os.environ,
+                {
+                    "NOTION_TOKEN": "notion-token",
+                    "BOOK_DATABASE_ID": "book-database-id",
+                    "GITHUB_ENV": env_path,
+                },
+                clear=True,
+            ), patch.object(notion_helper, "Client") as client:
+                helper = notion_helper.NotionHelper("book")
+
+            self.assertEqual(helper.book_database_id, "book-database-id")
+            self.assertIsNone(helper.page_id)
+            client.return_value.blocks.children.list.assert_not_called()
+        finally:
+            os.unlink(env_path)
+
+    def test_missing_required_database_fails_before_querying_none(self):
+        with patch.dict(
+            os.environ,
+            {"NOTION_TOKEN": "notion-token"},
+            clear=True,
+        ), patch.object(notion_helper, "Client"):
+            with self.assertRaisesRegex(ValueError, "未找到书架数据库"):
+                notion_helper.NotionHelper("book")
 
 
 if __name__ == "__main__":

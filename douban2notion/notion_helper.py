@@ -35,8 +35,8 @@ class NotionHelper:
         "ACTOR_DATABASE_NAME": "演员",
         "AUTHOR_DATABASE_NAME": "作者",
     }
-    database_id_dict = {}
     image_dict = {}
+
     def __init__(self,type):
         is_movie = True if type=="movie" else False
         page_url = os.getenv("NOTION_MOVIE_URL") if is_movie else os.getenv("NOTION_BOOK_URL")
@@ -47,18 +47,27 @@ class NotionHelper:
             else:
                 notion_token = os.getenv("BOOK_NOTION_TOKEN")
         self.client = Client(auth=notion_token, log_level=logging.ERROR)
+        self.database_name_dict = dict(self.database_name_dict)
+        self.database_id_dict = {}
         self.__cache = {}
         self.heatmap_block_id = None
-        self.page_id = self.extract_page_id(page_url)
-        self.search_database(self.page_id)
+        self.page_id = self.extract_page_id(page_url) if page_url else None
+        if self.page_id:
+            self.search_database(self.page_id)
         for key in self.database_name_dict.keys():
             if os.getenv(key) != None and os.getenv(key) != "":
                 self.database_name_dict[key] = os.getenv(key)
-        self.book_database_id = self.database_id_dict.get(
-            self.database_name_dict.get("BOOK_DATABASE_NAME")
+        self.book_database_id = (
+            os.getenv("BOOK_DATABASE_ID")
+            or self.database_id_dict.get(
+                self.database_name_dict.get("BOOK_DATABASE_NAME")
+            )
         )
-        self.movie_database_id = self.database_id_dict.get(
-            self.database_name_dict.get("MOVIE_DATABASE_NAME")
+        self.movie_database_id = (
+            os.getenv("MOVIE_DATABASE_ID")
+            or self.database_id_dict.get(
+                self.database_name_dict.get("MOVIE_DATABASE_NAME")
+            )
         )
         self.day_database_id = self.database_id_dict.get(
             self.database_name_dict.get("DAY_DATABASE_NAME")
@@ -84,6 +93,15 @@ class NotionHelper:
         self.actor_database_id = self.database_id_dict.get(
             self.database_name_dict.get("ACTOR_DATABASE_NAME")
         )
+        required_database_id = (
+            self.movie_database_id if is_movie else self.book_database_id
+        )
+        if not required_database_id:
+            target = "电影" if is_movie else "书架"
+            raise ValueError(
+                f"未找到{target}数据库。请检查模板根页，"
+                f"或设置 {'MOVIE_DATABASE_ID' if is_movie else 'BOOK_DATABASE_ID'}。"
+            )
         if self.day_database_id:
             self.write_database_id(self.day_database_id)
         if is_movie:
