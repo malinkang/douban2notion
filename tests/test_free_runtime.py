@@ -276,32 +276,34 @@ class FreeRuntimeTest(unittest.TestCase):
         ):
             getattr(helper, getter_name).assert_not_called()
 
-    def test_page_writes_skip_columns_missing_from_legacy_database(self):
+    def test_page_writes_skip_missing_and_type_mismatched_legacy_columns(self):
         helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
         helper.client = Mock()
         helper.client.pages.create.return_value = {"id": "new-page-id"}
         helper.client.pages.update.return_value = {"id": "existing-page-id"}
-        helper.target_database_id = "movie-database-id"
+        helper.target_database_id = "book-database-id"
         helper._database_properties_cache = {
-            "movie-database-id": {
-                "电影名": {"type": "title"},
+            "book-database-id": {
+                "书名": {"type": "title"},
                 "日期": {"type": "date"},
+                "出版社": {"type": "relation"},
             }
         }
         properties = {
-            "电影名": {"title": []},
-            "豆瓣链接": {"url": "https://movie.douban.com/subject/1/"},
+            "书名": {"title": []},
+            "豆瓣链接": {"url": "https://book.douban.com/subject/1/"},
             "封面": {"files": []},
+            "出版社": {"multi_select": [{"name": "旧模板出版社"}]},
         }
 
         helper.create_page(
-            {"database_id": "movie-database-id", "type": "database_id"},
+            {"database_id": "book-database-id", "type": "database_id"},
             properties,
             {"type": "external", "external": {"url": "https://example.com/a.jpg"}},
         )
         helper.update_page("existing-page-id", properties)
 
-        expected = {"电影名": {"title": []}}
+        expected = {"书名": {"title": []}}
         self.assertEqual(
             helper.client.pages.create.call_args.kwargs["properties"], expected
         )
