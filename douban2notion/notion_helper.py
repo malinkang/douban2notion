@@ -274,6 +274,9 @@ class NotionHelper:
             name: value
             for name, value in properties.items()
             if name in database_properties
+            and isinstance(database_properties[name], dict)
+            and isinstance(value, dict)
+            and database_properties[name].get("type") in value
         }
 
     def update_movie_database(self):
