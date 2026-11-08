@@ -16,6 +16,7 @@ setup(
     entry_points={
         "console_scripts": [
             "douban = douban2notion.douban:main",
+            "douban_heatmap = douban2notion.heatmap_cli:main",
             "heatmap = douban2notion.update_heatmap:main",
         ],
     },

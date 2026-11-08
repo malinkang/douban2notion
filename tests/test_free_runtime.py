@@ -10,6 +10,7 @@ import pendulum
 from notion_client.errors import APIErrorCode, APIResponseError
 
 from douban2notion import douban
+from douban2notion import heatmap_cli
 from douban2notion import notion_helper
 from douban2notion import utils
 
@@ -112,6 +113,31 @@ class FreeRuntimeTest(unittest.TestCase):
             get.call_args.kwargs["timeout"],
             douban.DOUBAN_REQUEST_TIMEOUT,
         )
+
+    def test_heatmap_counts_dated_pages_without_value_columns(self):
+        loader = Mock(
+            date_prop_name="日期",
+            number_by_date_dict={"2026-11-08": 0},
+            number_list=[],
+        )
+        loader.get_api_data.return_value = [
+            {
+                "properties": {
+                    "日期": {"date": {"start": "2026-11-08T08:00:00+08:00"}}
+                }
+            },
+            {
+                "properties": {
+                    "日期": {"date": {"start": "2026-11-08T20:00:00+08:00"}}
+                }
+            },
+            {"properties": {"日期": {"date": None}}},
+        ]
+
+        heatmap_cli.count_tracks(loader)
+
+        self.assertEqual(loader.number_by_date_dict["2026-11-08"], 2)
+        self.assertIn(2, loader.number_list)
 
     def test_notion_client_retries_rate_limits_and_respects_retry_after(self):
         class RateLimitError(APIResponseError):
