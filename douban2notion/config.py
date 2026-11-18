@@ -22,6 +22,8 @@ book_properties_type_dict = {
     "状态":STATUS,
     "日期":DATE,
     "简介":RICH_TEXT,
+    # Current templates use 豆瓣; legacy templates use 豆瓣链接.
+    "豆瓣":URL,
     "豆瓣链接":URL,
     "出版社":MULTI_SELECT,
 }
@@ -50,6 +52,8 @@ movie_properties_type_dict = {
     "日期":DATE,
     "简介":RICH_TEXT,
     "IMDB":RICH_TEXT,
+    # Current templates use 豆瓣; legacy templates use 豆瓣链接.
+    "豆瓣":URL,
     # "开始阅读时间":DATE,
     # "最后阅读时间":DATE,
     # "简介":RICH_TEXT,
