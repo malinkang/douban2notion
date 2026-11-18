@@ -140,6 +140,17 @@ def _notion_item_key(link, title):
     return None
 
 
+def _douban_link(item):
+    """Return the URL from either the current or legacy Notion property."""
+    if not isinstance(item, dict):
+        return None
+    for key in ("豆瓣", "豆瓣链接"):
+        value = str(item.get(key) or "").strip()
+        if value:
+            return value
+    return None
+
+
 
 def insert_movie(douban_name,notion_helper):
     notion_movies = notion_helper.query_all(database_id=notion_helper.movie_database_id)
@@ -148,7 +159,7 @@ def insert_movie(douban_name,notion_helper):
         movie = {}
         for key, value in i.get("properties").items():
             movie[key] = utils.get_property_value(value)
-        item_key = _notion_item_key(movie.get("豆瓣链接"), movie.get("电影名"))
+        item_key = _notion_item_key(_douban_link(movie), movie.get("电影名"))
         if item_key:
             notion_movie_dict[item_key] = {
                 "短评": movie.get("短评"),
@@ -174,15 +185,21 @@ def insert_movie(douban_name,notion_helper):
         #时间上传到Notion会丢掉秒的信息，这里直接将秒设置为0
         create_time = create_time.replace(second=0)
         movie["日期"] = create_time.int_timestamp
-        movie["豆瓣链接"] = subject.get("url")
+        movie["豆瓣"] = subject.get("url")
+        movie["豆瓣链接"] = movie["豆瓣"]
         movie["状态"] = movie_status.get(result.get("status"))
         if result.get("rating"):
             movie["评分"] = rating.get(result.get("rating").get("value"))
         if result.get("comment"):
             movie["短评"] = result.get("comment")
-        item_key = _notion_item_key(movie.get("豆瓣链接"), movie.get("电影名"))
-        if item_key and notion_movie_dict.get(item_key):
-            notion_movive = notion_movie_dict.get(item_key)
+        item_key = _notion_item_key(_douban_link(movie), movie.get("电影名"))
+        notion_movive = notion_movie_dict.get(item_key) if item_key else None
+        # A legacy page can have no URL after the old property name was
+        # filtered out by a newer template. Reuse its title entry so the
+        # first fixed run repairs it instead of creating another copy.
+        if notion_movive is None:
+            notion_movive = notion_movie_dict.get(("title", str(movie.get("电影名") or "").strip()))
+        if item_key and notion_movive:
             if (
                 notion_movive.get("日期") != movie.get("日期")
                 or notion_movive.get("短评") != movie.get("短评")
@@ -207,7 +224,7 @@ def insert_movie(douban_name,notion_helper):
                         for x in actors
                     ]
                 if not notion_movive.get("IMDB"):
-                    movie["IMDB"] = get_imdb(movie.get("豆瓣链接"))
+                    movie["IMDB"] = get_imdb(_douban_link(movie))
                 properties = utils.get_properties(movie, movie_properties_type_dict)
                 print(movie.get("电影名"))
                 notion_helper.get_date_relation(properties,create_time)
@@ -286,7 +303,7 @@ def insert_book(douban_name,notion_helper):
         book = {}
         for key, value in i.get("properties").items():
             book[key] = utils.get_property_value(value)
-        item_key = _notion_item_key(book.get("豆瓣链接"), book.get("书名"))
+        item_key = _notion_item_key(_douban_link(book), book.get("书名"))
         if item_key:
             notion_book_dict[item_key] = {
                 "短评": book.get("短评"),
@@ -312,7 +329,8 @@ def insert_book(douban_name,notion_helper):
         #时间上传到Notion会丢掉秒的信息，这里直接将秒设置为0
         create_time = create_time.replace(second=0)
         book["日期"] = create_time.int_timestamp
-        book["豆瓣链接"] = subject.get("url")
+        book["豆瓣"] = subject.get("url")
+        book["豆瓣链接"] = book["豆瓣"]
         book["状态"] = book_status.get(result.get("status"))
         cover = subject.get("pic").get("large")
         if not cover.endswith('.webp'):
@@ -322,9 +340,11 @@ def insert_book(douban_name,notion_helper):
             book["评分"] = rating.get(result.get("rating").get("value"))
         if result.get("comment"):
             book["短评"] = result.get("comment")
-        item_key = _notion_item_key(book.get("豆瓣链接"), book.get("书名"))
-        if item_key and notion_book_dict.get(item_key):
-            notion_movive = notion_book_dict.get(item_key)
+        item_key = _notion_item_key(_douban_link(book), book.get("书名"))
+        notion_movive = notion_book_dict.get(item_key) if item_key else None
+        if notion_movive is None:
+            notion_movive = notion_book_dict.get(("title", str(book.get("书名") or "").strip()))
+        if item_key and notion_movive:
             if (
                 notion_movive.get("封面") is None
                 or notion_movive.get("封面") != book.get("封面")

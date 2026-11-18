@@ -27,6 +27,47 @@ BLOCKED_HOSTS = (
 
 
 class FreeRuntimeTest(unittest.TestCase):
+    def test_movie_payload_supports_current_and_legacy_douban_url_properties(self):
+        url = "https://movie.douban.com/subject/1/"
+        properties = utils.get_properties(
+            {"电影名": "示例", "豆瓣": url, "豆瓣链接": url},
+            douban.movie_properties_type_dict,
+        )
+
+        self.assertEqual(properties["豆瓣"], {"url": url})
+        self.assertEqual(properties["豆瓣链接"], {"url": url})
+        self.assertEqual(douban._douban_link({"豆瓣": url, "豆瓣链接": ""}), url)
+
+    def test_movie_create_filters_to_the_schema_property_name(self):
+        helper = notion_helper.NotionHelper.__new__(notion_helper.NotionHelper)
+        helper.client = Mock()
+        helper.client.pages.create.return_value = {"id": "new-page"}
+        helper.target_database_id = "movie-db"
+        helper._database_properties_cache = {
+            "movie-db": {
+                "电影名": {"type": "title"},
+                "豆瓣": {"type": "url"},
+            }
+        }
+        properties = utils.get_properties(
+            {
+                "电影名": "示例",
+                "豆瓣": "https://movie.douban.com/subject/1/",
+                "豆瓣链接": "https://movie.douban.com/subject/1/",
+            },
+            douban.movie_properties_type_dict,
+        )
+
+        helper.create_page(
+            {"database_id": "movie-db", "type": "database_id"},
+            properties,
+            {"type": "external", "external": {"url": "https://example.com/poster.jpg"}},
+        )
+
+        sent = helper.client.pages.create.call_args.kwargs["properties"]
+        self.assertEqual(sent["豆瓣"]["url"], "https://movie.douban.com/subject/1/")
+        self.assertNotIn("豆瓣链接", sent)
+
     def test_source_does_not_call_notionhub_services(self):
         source = "\n".join(
             path.read_text(encoding="utf-8")
